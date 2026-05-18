@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --color-safe: #22c55e;
+  --color-warning: #eab308;
+  --color-danger: #ef4444;
+  --color-kakao: #FEE500;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, .btn-touch {
+  min-height: 52px;
+  min-width: 52px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media screen and (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}
