@@ -3,30 +3,37 @@ import { useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
 import Layout from './components/Layout';
 import Login from './pages/Login';
+import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import CheckIn from './pages/CheckIn';
 import Report from './pages/Report';
+import Workers from './pages/Workers';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<boolean | null>(null);
+function ProtectedRoute({ children, requireProfile = true }: { children: React.ReactNode; requireProfile?: boolean }) {
+  const [state, setState] = useState<'loading' | 'login' | 'setup' | 'ok'>('loading');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(!!session);
-    });
+    const check = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return setState('login');
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(!!session);
-    });
+      if (requireProfile) {
+        const { data: profile } = await supabase.from('profiles').select('id').eq('id', session.user.id).single();
+        if (!profile) return setState('setup');
+      }
 
+      setState('ok');
+    };
+    check();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => check());
     return () => subscription.unsubscribe();
-  }, []);
+  }, [requireProfile]);
 
-  if (session === null) {
-    return <div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>;
-  }
-
-  return session ? <>{children}</> : <Navigate to="/login" />;
+  if (state === 'loading') return <div className="flex items-center justify-center min-h-screen text-gray-400">Loading...</div>;
+  if (state === 'login') return <Navigate to="/login" />;
+  if (state === 'setup') return <Navigate to="/setup" />;
+  return <>{children}</>;
 }
 
 export default function App() {
@@ -34,6 +41,11 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/setup" element={
+          <ProtectedRoute requireProfile={false}>
+            <ProfileSetup />
+          </ProtectedRoute>
+        } />
         <Route path="/" element={
           <ProtectedRoute>
             <Layout />
@@ -43,6 +55,7 @@ export default function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="checkin" element={<CheckIn />} />
           <Route path="report" element={<Report />} />
+          <Route path="workers" element={<Workers />} />
         </Route>
       </Routes>
     </BrowserRouter>

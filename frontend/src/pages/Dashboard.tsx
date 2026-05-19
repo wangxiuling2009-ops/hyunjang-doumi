@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, type Site, type Process } from '../lib/supabase';
+import { supabase, type Site, type Process, type Profile } from '../lib/supabase';
 import { useTranslation } from 'react-i18next';
 import StatusBadge from '../components/StatusBadge';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [sites, setSites] = useState<Site[]>([]);
   const [processes, setProcesses] = useState<Process[]>([]);
   const [selectedSite, setSelectedSite] = useState<string | null>(null);
@@ -14,13 +17,34 @@ export default function Dashboard() {
   const [newSiteName, setNewSiteName] = useState('');
   const [newSiteAddr, setNewSiteAddr] = useState('');
 
+  const isManager = profile?.role === 'manager';
+
+  const loadProfile = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+    if (data) setProfile(data);
+  }, []);
+
   const loadSites = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await supabase.from('sites').select('*').eq('owner_id', user.id).order('created_at', { ascending: false });
-    if (data) { setSites(data); if (data.length > 0 && !selectedSite) setSelectedSite(data[0].id); }
+
+    if (isManager) {
+      // Manager: own sites
+      const { data } = await supabase.from('sites').select('*').eq('owner_id', user.id).order('created_at', { ascending: false });
+      if (data) { setSites(data); if (data.length > 0 && !selectedSite) setSelectedSite(data[0].id); }
+    } else {
+      // Worker: invited sites
+      const { data: sw } = await supabase.from('site_workers').select('site_id').eq('worker_id', user.id);
+      if (sw && sw.length > 0) {
+        const ids = sw.map(s => s.site_id);
+        const { data } = await supabase.from('sites').select('*').in('id', ids).order('created_at', { ascending: false });
+        if (data) { setSites(data); if (data.length > 0 && !selectedSite) setSelectedSite(data[0].id); }
+      }
+    }
     setLoading(false);
-  }, [selectedSite]);
+  }, [isManager, selectedSite]);
 
   const loadProcesses = useCallback(async () => {
     if (!selectedSite) return;
@@ -28,7 +52,8 @@ export default function Dashboard() {
     if (data) setProcesses(data);
   }, [selectedSite]);
 
-  useEffect(() => { loadSites(); }, []);
+  useEffect(() => { loadProfile(); }, []);
+  useEffect(() => { if (profile) loadSites(); }, [profile, loadSites]);
   useEffect(() => { loadProcesses(); }, [selectedSite, loadProcesses]);
 
   const handleAddSite = async () => {
@@ -51,26 +76,45 @@ export default function Dashboard() {
 
   return (
     <div>
+      {/* Header */}
       <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-gray-700">{t('dashboard.siteStatus')}</h2>
+          <div>
+            <h2 className="text-sm font-bold text-gray-700">{t('dashboard.siteStatus')}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {profile?.real_name} · {isManager ? t('profile.manager') : t('profile.worker')}
+            </p>
+          </div>
           <div className={`w-10 h-10 rounded-full ${getTrafficColor()} shadow-md`} />
         </div>
+
+        {/* Site selector */}
         <div className="flex gap-2 overflow-x-auto pb-2">
           {sites.map(site => (
             <button key={site.id} onClick={() => setSelectedSite(site.id)}
-              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${selectedSite === site.id ? 'bg-yellow-400 text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium ${selectedSite === site.id ? 'bg-yellow-400 text-gray-900' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               {site.name}
             </button>
           ))}
-          <button onClick={() => setShowNewSite(true)}
-            className="shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
-            <Plus size={16} />
-          </button>
+          {isManager && (
+            <button onClick={() => setShowNewSite(true)}
+              className="shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200">
+              <Plus size={16} />
+            </button>
+          )}
         </div>
+
+        {/* Manager: quick link to workers */}
+        {isManager && selectedSite && (
+          <button onClick={() => navigate('/workers')}
+            className="mt-2 w-full py-2 bg-gray-50 rounded-lg text-xs font-medium text-gray-600 flex items-center justify-center gap-1 hover:bg-gray-100">
+            <Users size={14} /> {t('workers.manage')}
+          </button>
+        )}
       </div>
 
-      {showNewSite && (
+      {/* New Site Modal (manager only) */}
+      {showNewSite && isManager && (
         <div className="bg-white rounded-2xl p-4 shadow-sm mb-4">
           <input type="text" value={newSiteName} onChange={e => setNewSiteName(e.target.value)} placeholder={t('dashboard.siteName')}
             className="w-full px-3 py-2 border rounded-lg text-sm mb-2" />
@@ -83,6 +127,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Process List */}
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <h3 className="text-sm font-bold text-gray-700">{t('dashboard.processStatus')}</h3>
@@ -96,7 +141,9 @@ export default function Dashboard() {
               <div key={proc.id} className="px-4 py-3 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-900">{proc.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{t('dashboard.updated')}: {new Date(proc.updated_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {t('dashboard.updated')}: {new Date(proc.updated_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
                 <StatusBadge status={proc.status} />
               </div>

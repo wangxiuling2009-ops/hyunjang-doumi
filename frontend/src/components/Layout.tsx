@@ -1,9 +1,10 @@
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { ClipboardCheck, Camera, LayoutDashboard, LogOut, Globe } from 'lucide-react';
+import { ClipboardCheck, Camera, LayoutDashboard, LogOut, Globe, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '../lib/supabase';
 
-const NAV_ITEMS = [
+const BASE_NAV = [
   { path: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { path: '/checkin', labelKey: 'nav.checkin', icon: ClipboardCheck },
   { path: '/report', labelKey: 'nav.report', icon: Camera },
@@ -19,6 +20,21 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, i18n } = useTranslation();
+  const [isManager, setIsManager] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        supabase.from('profiles').select('role').eq('id', user.id).single().then(({ data }) => {
+          setIsManager(data?.role === 'manager');
+        });
+      }
+    });
+  }, []);
+
+  const navItems = isManager
+    ? [...BASE_NAV, { path: '/workers', labelKey: 'nav.workers', icon: Users }]
+    : BASE_NAV;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -47,7 +63,7 @@ export default function Layout() {
       </header>
       <main className="px-4 py-4"><Outlet /></main>
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around py-2 z-40">
-        {NAV_ITEMS.map(item => {
+        {navItems.map(item => {
           const active = location.pathname === item.path;
           const Icon = item.icon;
           return (

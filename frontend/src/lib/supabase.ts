@@ -4,12 +4,23 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials not set. Create .env with VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+  console.warn('Supabase credentials not set.');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: { persistSession: true, autoRefreshToken: true }
 });
+
+// ---- Types ----
+
+export interface Profile {
+  id: string;
+  role: 'manager' | 'worker';
+  real_name: string;
+  phone: string;
+  trade: string;
+  created_at: string;
+}
 
 export interface Site {
   id: string;
@@ -49,5 +60,13 @@ export interface IssueReport {
   tag: string;
   voice_text_ko: string;
   voice_text_orig: string;
+  created_at: string;
+}
+
+export interface SiteWorker {
+  id: string;
+  site_id: string;
+  worker_id: string;
+  invited_by: string;
   created_at: string;
 }
