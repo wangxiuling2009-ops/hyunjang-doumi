@@ -94,5 +94,10 @@
   "workers.empty": "暂无注册工人",
   "workers.alreadyInvited": "该工人已被邀请",
   "workers.userNotFound": "未找到该用户",
-  "workers.inviteSuccess": "邀请成功！"
+  "workers.inviteSuccess": "邀请成功！",
+  "login.google": "Google 登录",
+  "login.kakao": "Kakao 登录",
+  "login.wechat": "微信登录",
+  "login.comingSoon": "即将推出",
+  "login.or": "或"
 }

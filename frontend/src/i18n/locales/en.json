@@ -94,5 +94,10 @@
   "workers.empty": "No workers registered yet",
   "workers.alreadyInvited": "Worker already invited",
   "workers.userNotFound": "User not found",
-  "workers.inviteSuccess": "Invitation sent!"
+  "workers.inviteSuccess": "Invitation sent!",
+  "login.google": "Sign in with Google",
+  "login.kakao": "Sign in with Kakao",
+  "login.wechat": "Sign in with WeChat",
+  "login.comingSoon": "Coming soon",
+  "login.or": "or"
 }
